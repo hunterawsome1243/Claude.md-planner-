@@ -59,6 +59,8 @@ JOBS=2 node test/run.js                           # fewer files at once on a slo
 
 `test/run.js` runs every `*.test.js` under `test/`, a few at a time, and prints one line per file. A file fails when it exits with an error, prints a line starting with `FAIL`, prints `fails: N` above 0, or the page throws an uncaught error. A failed file is run once more on its own (a few tests that reload pages can trip over a busy machine); `RETRY=0` turns that off. Each file's whole output goes to `test/out/`.
 
+A few layout checks measure text in pixels. The tests block web fonts, so the page uses the system's sans-serif font, and those checks expect Inter. On macOS and Windows a handful may fail for that reason alone. On Linux, install Inter (`sudo apt-get install fonts-inter`) and copy `test/fonts/56-prefer-inter.conf` to `/etc/fonts/conf.d/`, as CI does.
+
 The browser tests open pages built by `test/build-pages.js` (run by `npm run build`):
 
 - `test/mocked.html` puts `test/mock.js` in front of the app. The mock stands in for claude.ai: an in-memory db (`window.__mockDocs`), canned Claude replies chosen by the first words of each prompt, and downloads. A test can seed projects with `window.__SEED__` or set who is looking with `window.__USER__`.

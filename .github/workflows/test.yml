@@ -16,6 +16,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Use Inter as the system font, as the layout checks expect
+        run: |
+          sudo apt-get install -y fonts-inter
+          sudo cp test/fonts/56-prefer-inter.conf /etc/fonts/conf.d/
+          fc-cache -f
+          fc-match system-ui
       - name: index.html matches src/
         run: |
           npm run build
