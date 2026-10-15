@@ -1,0 +1,206 @@
+{
+ "kind": "project",
+ "name": "Shipyard Planner",
+ "pitch": "A planning app for Claude Code projects: brief, features, a session-sized plan, a ready CLAUDE.md, and a health check to keep improving.",
+ "stage": "polishing",
+ "audience": "Me (Hunter), when I start or keep going on a project built with Claude Code.",
+ "problem": "Projects drift without a clear goal, tasks get too big for one Claude session, and lessons from past sessions get lost.",
+ "doneWhen": "I can take an idea to a brief, a feature list and a step-by-step plan, copy a good prompt for each task into Claude Code, and keep a CLAUDE.md that improves as I learn.",
+ "stack": "Single HTML page hosted as a private Claude artifact\nVanilla JavaScript, no build step\nArtifact database for saving projects\nClaude (inside the page) for drafting and reviews",
+ "commands": "# No build step: open shipyard.html in a browser and try the change in light, dark and phone widths",
+ "conventions": "- Keep it one HTML file\n- Every Claude feature must be optional; the app works without it\n- Plain, friendly wording in the interface",
+ "constraints": "Runs inside claude.ai with no server of its own.",
+ "repo": "",
+ "features": [
+  {
+   "id": "f-brief",
+   "title": "Project brief",
+   "detail": "Pitch, audience, problem, finish line, stack, commands and conventions.",
+   "priority": "must",
+   "status": "done"
+  },
+  {
+   "id": "f-board",
+   "title": "Feature board",
+   "detail": "Must, should and could lanes with a status on each feature.",
+   "priority": "must",
+   "status": "done"
+  },
+  {
+   "id": "f-plan",
+   "title": "Milestone plan",
+   "detail": "Milestones in order, each broken into tasks sized S, M or L.",
+   "priority": "must",
+   "status": "done"
+  },
+  {
+   "id": "f-prompt",
+   "title": "Prompt for each task",
+   "detail": "Turns any task into a ready-to-paste Claude Code prompt with project context.",
+   "priority": "must",
+   "status": "done"
+  },
+  {
+   "id": "f-md",
+   "title": "CLAUDE.md builder",
+   "detail": "Generated from the project, editable, copy or download.",
+   "priority": "must",
+   "status": "done"
+  },
+  {
+   "id": "f-health",
+   "title": "Health checks and lessons",
+   "detail": "Automatic plan checks, good habits, and lessons that become CLAUDE.md rules.",
+   "priority": "should",
+   "status": "done"
+  },
+  {
+   "id": "f-ai",
+   "title": "Claude drafting and review",
+   "detail": "Draft a brief and plan from an idea, suggest features, review the project.",
+   "priority": "should",
+   "status": "done"
+  },
+  {
+   "id": "f-export",
+   "title": "Export as Markdown",
+   "detail": "The whole plan as one Markdown file.",
+   "priority": "could",
+   "status": "done"
+  },
+  {
+   "id": "f-templates",
+   "title": "Project templates",
+   "detail": "Start from a template for common project types such as a website, a game or a bot.",
+   "priority": "could",
+   "status": "todo"
+  },
+  {
+   "id": "f-import",
+   "title": "Import an existing CLAUDE.md",
+   "detail": "Paste a CLAUDE.md from a repo and fill the brief from it.",
+   "priority": "could",
+   "status": "todo"
+  }
+ ],
+ "screens": [
+  {
+   "id": "s-rail",
+   "name": "Project list",
+   "notes": "Left rail with every project, its stage and task progress."
+  },
+  {
+   "id": "s-tabs",
+   "name": "Project sheet",
+   "notes": "Name, stage, build gauge and five tabs: Overview, Design, Plan, CLAUDE.md, Improve."
+  }
+ ],
+ "decisions": [
+  {
+   "id": "d-host",
+   "date": "2026-10-13",
+   "text": "Host the app as a private Claude artifact instead of a GitHub repo.",
+   "why": "No setup, it saves to my account, and Claude can read my plans when I ask for help."
+  }
+ ],
+ "milestones": [
+  {
+   "goal": "Plan a project end to end inside the app.",
+   "id": "m-v1",
+   "tasks": [
+    {
+     "id": "t-v1-1",
+     "notes": "",
+     "size": "M",
+     "status": "done",
+     "title": "Build brief, feature board and plan"
+    },
+    {
+     "id": "t-v1-2",
+     "notes": "",
+     "size": "M",
+     "status": "done",
+     "title": "Generate CLAUDE.md and task prompts"
+    },
+    {
+     "id": "t-v1-3",
+     "notes": "",
+     "size": "M",
+     "status": "done",
+     "title": "Add health checks, lessons and Claude review"
+    },
+    {
+     "id": "t-v1-4",
+     "notes": "",
+     "size": "S",
+     "status": "done",
+     "title": "Test in light, dark and phone layouts"
+    }
+   ],
+   "title": "First version"
+  },
+  {
+   "goal": "Faster starts for new projects.",
+   "id": "m-next",
+   "tasks": [
+    {
+     "id": "t-next-1",
+     "notes": "Add a Template choice to the New project dialog (Website, Game, Bot). Each template fills in the stack, commands, conventions and a first milestone. Check: creating a project from each template fills those fields.",
+     "size": "M",
+     "status": "todo",
+     "title": "Add project templates"
+    },
+    {
+     "id": "t-next-2",
+     "notes": "Add an Import CLAUDE.md option to the New project dialog that fills the pitch, stack, commands and conventions from a pasted file's sections. Check: pasting this project's own CLAUDE.md fills the brief.",
+     "size": "M",
+     "status": "todo",
+     "title": "Import an existing CLAUDE.md into a new project"
+    }
+   ],
+   "title": "Next features"
+  },
+  {
+   "goal": "Use Shipyard for one real Claude Code build and note what feels clunky.",
+   "id": "m-try",
+   "tasks": [
+    {
+     "id": "t-try-1",
+     "notes": "Use New project, then Create and draft with Claude.",
+     "size": "S",
+     "status": "todo",
+     "title": "Create a project for my next Claude Code idea"
+    },
+    {
+     "id": "t-try-2",
+     "notes": "Copy each prompt from the Plan tab into Claude Code.",
+     "size": "M",
+     "status": "todo",
+     "title": "Run the first two tasks in Claude Code using the generated prompts"
+    },
+    {
+     "id": "t-try-3",
+     "notes": "Improve tab, Lessons.",
+     "size": "S",
+     "status": "todo",
+     "title": "Log anything that felt clunky as a lesson"
+    },
+    {
+     "id": "t-try-4",
+     "notes": "",
+     "size": "S",
+     "status": "todo",
+     "title": "Ask Claude in the project chat to fix the top three annoyances"
+    }
+   ],
+   "title": "Try it on a real project"
+  }
+ ],
+ "checks": {},
+ "lessons": [],
+ "claudeMd": "",
+ "claudeMdEdited": false,
+ "lastReview": null,
+ "createdAt": "2026-10-13T18:40:00.000Z",
+ "updatedAt": "2026-10-13T21:00:00.000Z"
+}

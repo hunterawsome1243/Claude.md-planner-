@@ -1,0 +1,29 @@
+name: Test
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: index.html matches src/
+        run: |
+          npm run build
+          git diff --exit-code -- index.html || (echo "index.html is out of date: run npm run build and commit it" && exit 1)
+      - run: JOBS=2 node test/run.js
+      - name: Keep the test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test/out/

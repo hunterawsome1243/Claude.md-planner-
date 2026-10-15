@@ -1,0 +1,35 @@
+// Full flow on the latency-compensating db: look for errors, reverted edits, or extra writes.
+const { chromium, open, newProject, docs, log } = require('./h');
+const path = require('path');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const b = await chromium.launch();
+  const { pg, errs } = await open(b, path.join(__dirname, 'opt.html'), { wait: 500 });
+  await newProject(pg, 'Recipe Box', 'Save recipes from links and plan meals', true);
+  await sleep(1500);
+  await pg.click('[data-act="tab"][data-k="design"]');
+  await pg.click('[data-act="ai-features"]'); await sleep(800);
+  await pg.click('[data-act="prop-accept"]'); await sleep(200);
+  await pg.click('[data-act="cycle-feature"] >> nth=0');
+  await pg.click('[data-act="tab"][data-k="plan"]');
+  await pg.click('[data-act="ai-plan"]'); await sleep(800);
+  await pg.click('[data-act="prop-accept"]'); await sleep(200);
+  await pg.click('.t-title >> nth=0'); await pg.keyboard.press('End'); await pg.keyboard.type(' now'); await pg.keyboard.press('Enter'); await pg.keyboard.type('Brand new task');
+  await pg.click('[data-act="tab"][data-k="improve"]');
+  await pg.check('#f-checks-git');
+  await pg.click('[data-act="ai-review"]'); await sleep(800);
+  await pg.click('[data-act="review-add"] >> nth=0');
+  await pg.click('[data-act="add-lesson"]'); await pg.keyboard.type('Claude rewrote everything');
+  await sleep(2000);
+  const local = await pg.evaluate(() => document.querySelector('#plist').innerText.replace(/\s+/g, ' '));
+  const d = Object.values(await docs(pg))[0];
+  console.log('rail:', local);
+  console.log('store: features', d.features.length, 'milestones', d.milestones.length, 'tasks', d.milestones.flatMap((m) => m.tasks).length, 'checks', JSON.stringify(d.checks), 'lessons', d.lessons.map((l) => l.happened), 'task0', d.milestones[0].tasks[0].title, 'review', !!d.lastReview);
+  const L = await log(pg);
+  console.log('writes:', L.filter((x) => /-sent$/.test(x[0])).length, ' rejected:', L.filter((x) => /rejected/.test(x[0])).length);
+  await sleep(3000);
+  const L2 = await log(pg);
+  console.log('writes after 3 s idle:', L2.filter((x) => /-sent$/.test(x[0])).length, '(no change means no write loop)');
+  console.log('errors', errs);
+  await b.close();
+})();

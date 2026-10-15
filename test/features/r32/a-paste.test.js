@@ -1,0 +1,65 @@
+// Round 32: Log a session and Update from PLAN.md with text pasted from Claude Code
+const path = require('path'); const fs = require('fs');
+const { launch, open, check } = require('./lib');
+const fa = (pg) => pg.evaluate(() => { const e = document.activeElement; return e ? e.tagName + (e.id ? '#' + e.id : '') + (e.dataset.act ? '[' + e.dataset.act + ']' : '') : null; });
+const seed = { 'p-a': { kind: 'project', name: 'Plant Pal', pitch: 'Water plants on time.', milestones: [{ id: 'm1', title: 'Basics', tasks: [{ id: 't1', title: 'List plants' }, { id: 't2', title: 'Water reminder' }] }] } };
+const doc = (pg) => pg.evaluate(() => window.__mockDocs.get('p-a'));
+const term = (t) => t.split('\n').map((l, i) => (i === 0 ? '⏺ ' + l : l ? '  ' + l : '')).join('\n');
+const checked = (pg) => pg.$$eval('input[name="ss-outcome"]', (x) => x.filter((e) => e.checked).map((e) => e.value).join());
+(async () => {
+  const b = await launch();
+  const { pg, errs } = await open(b, 'mocked.html', { init: `window.__SEED__ = ${JSON.stringify(seed)};`, wait: 700 });
+  await pg.click('#tab-plan');
+  await pg.click('[data-act="prompt"][data-tid="t1"]');
+  await pg.click('#modal-root [data-act="log-session"]');
+  check('the dialog starts at Done', (await checked(pg)) === 'done');
+  await pg.fill('#ss-summary', term('I added the plant list and its tests.\n\nThe list loads from storage and survives a reload.'));
+  check('a pasted summary with no Outcome line asks how it went', (await checked(pg)) === '' && /There is no "Outcome:" line in it, so choose how it went above\./.test(await pg.textContent('#ss-auto')), await pg.textContent('#ss-auto'));
+  await pg.click('[data-act="save-session"]');
+  check('saving without a choice says what is missing, at the choice', /Choose how it went/.test(await pg.textContent('.modal')) && (await fa(pg)) === 'INPUT' && (await pg.getAttribute('input[name="ss-outcome"]', 'aria-invalid')) === 'true', await fa(pg));
+  await pg.fill('#ss-summary', term('I added the plant list.\n\nOutcome — partly done\nWent wrong:\n- The first test run timed out\n- Storage was empty in private windows'));
+  check('Outcome with a dash and bullets under Went wrong fill both in', (await checked(pg)) === 'partly' && (await pg.inputValue('#ss-wrong')) === '- The first test run timed out\n- Storage was empty in private windows', await pg.inputValue('#ss-wrong'));
+  await pg.click('[data-act="save-session"]');
+  await pg.waitForTimeout(1700);
+  let d = await doc(pg);
+  check('saved: the task is in progress, with a session and a lesson', d.milestones[0].tasks[0].status === 'doing' && d.sessions.length === 1 && d.lessons.length === 1);
+  check('the toast offers Undo', (await pg.$$('#toast [data-act="undo"]')).length === 1);
+  await pg.click('#toast [data-act="undo"]');
+  await pg.waitForTimeout(1700);
+  d = await doc(pg);
+  check('Undo takes the session and its lesson out and puts the task back', d.milestones[0].tasks[0].status === 'todo' && !d.sessions.length && !d.lessons.length, [d.milestones[0].tasks[0].status, d.sessions.length, d.lessons.length]);
+  // a summary that says nothing went wrong, in so many words
+  await pg.click('[data-act="prompt"][data-tid="t1"]');
+  await pg.click('#modal-root [data-act="log-session"]');
+  await pg.fill('#ss-summary', 'Added the list.\n\n**Outcome:** Done ✅\n**Went wrong:** Nothing — all tests passed first time.');
+  check('"Nothing — all tests passed" leaves Went wrong empty', (await checked(pg)) === 'done' && (await pg.inputValue('#ss-wrong')) === '');
+  await pg.click('[data-act="save-session"]');
+  await pg.waitForTimeout(1700);
+  d = await doc(pg);
+  check('...so no lesson is made', d.milestones[0].tasks[0].status === 'done' && !d.lessons.length);
+  // Update from PLAN.md, copied from the terminal
+  await pg.click('#tab-claudemd');
+  await pg.click('[data-act="repo-file"][data-k="plan"]');
+  const md = (await pg.inputValue('#repo-text')).replace(/- \[ \] (Water reminder.*)/, '- [x] $1');
+  await pg.click('#tab-plan');
+  await pg.click('[data-act="open-plansync"]');
+  await pg.fill('#ps-text', term(md));
+  await pg.waitForTimeout(300);
+  const note = await pg.textContent('.modal');
+  check('Update from PLAN.md reads a terminal copy: one task done, no notes', /1 task marked done/.test(note) && !/notes added/.test(note), note.slice(0, 300));
+  await pg.click('[data-act="apply-plansync"]');
+  await pg.waitForTimeout(1700);
+  d = await doc(pg);
+  check('...and applies just that', d.milestones[0].tasks[1].status === 'done' && !d.milestones[0].tasks[0].notes && !d.milestones[0].tasks[1].notes);
+  // Import: a survey whose first line is written loosely
+  const sample = fs.readFileSync(path.join(__dirname, 'sample.md'), 'utf8').replace('<!-- shipyard:survey -->', '<!--Shipyard: survey-->');
+  await pg.click('[data-act="open-import"] >> visible=true');
+  await pg.fill('#np-text', term(sample));
+  await pg.waitForTimeout(400);
+  check('Import knows a loosely marked survey, copied from the terminal', /A description from Claude Code/.test(await pg.textContent('#np-detect')) && !(await pg.isChecked('#np-keepmd')) && (await pg.getAttribute('#np-name', 'placeholder')) === 'Tide Log');
+  await pg.click('[data-act="import"]');
+  await pg.waitForTimeout(400);
+  check('...and imports its bugs as bugs', /4 features, 2 tasks, a data model of 2 things and 2 bugs/.test(await pg.textContent('#toast')), await pg.textContent('#toast'));
+  check('no page errors', errs.length === 0, errs);
+  await b.close();
+})();

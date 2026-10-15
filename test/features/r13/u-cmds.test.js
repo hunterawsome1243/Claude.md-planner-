@@ -1,0 +1,13 @@
+const U = require('./unit-lib');
+let fails = 0;
+const check = (name, ok, detail) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail !== undefined ? ' :: ' + JSON.stringify(detail) : '')); };
+check('slugs are plain', U.cmdSlug('Write Release Notes!') === 'write-release-notes' && U.cmdSlug('  Café  déjà vu ') === 'cafe-deja-vu' && U.cmdSlug('***') === '', [U.cmdSlug('Write Release Notes!'), U.cmdSlug('  Café  déjà vu ')]);
+check('long names are cut without a trailing dash', U.cmdSlug('a'.repeat(39) + ' bbb').length <= 40 && !U.cmdSlug('a'.repeat(39) + ' bbb').endsWith('-'));
+const p = U.normalize({ name: 'x', prompts: [{ id: 'q1', title: 'Next', text: 'a' }, { id: 'q2', title: 'Release notes', text: 'b' }, { id: 'q3', title: 'Release notes', text: 'c' }, { id: 'q4', title: '', text: 'd' }, { id: 'q5', title: 'Empty', text: '  ' }, { id: 'q6', title: '¿¿', text: 'e' }] });
+const cs = U.promptCommands(p);
+check('names are unique, /next stays free, unnamed or empty prompts are left out', JSON.stringify(cs.map((c) => c.slug)) === '["next-2","release-notes-prompt","release-notes-prompt-2","prompt"]', cs.map((c) => c.slug));
+const md = U.commandMd({ title: 'Release notes: weekly', text: 'Write them.' });
+check('a command file has quoted frontmatter and takes a note', md === '---\ndescription: "Release notes: weekly"\nargument-hint: [optional note]\ndisable-model-invocation: true\n---\n\nWrite them.\n\nExtra note from me, if any: $ARGUMENTS\n', md);
+const md2 = U.commandMd({ title: 'Fix', text: 'Fix issue $ARGUMENTS now' });
+check('a prompt that uses $ARGUMENTS is left as written', md2 === '---\ndescription: "Fix"\ndisable-model-invocation: true\n---\n\nFix issue $ARGUMENTS now\n', md2);
+console.log(fails ? `${fails} failed` : 'all unit checks pass');

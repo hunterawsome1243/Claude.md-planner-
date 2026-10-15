@@ -1,0 +1,19 @@
+{
+  "name": "shipyard-planner",
+  "version": "15.0.0",
+  "description": "Plan, design and improve projects you build with Claude Code. A single-page web app with no server.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.js && node test/build-pages.js",
+    "start": "npm run build && npx --yes http-server -c-1 -p 8080 .",
+    "test": "npm run build && node test/run.js",
+    "test:unit": "npm run build && node test/run.js unit"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

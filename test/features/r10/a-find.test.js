@@ -1,0 +1,140 @@
+// Round 10: search the project list, archive and restore, duplicate, and "Same setup as another project".
+const { launch, open, check } = require('./lib');
+const fa = (pg) => pg.evaluate(() => { const e = document.activeElement; return e ? e.tagName + (e.id ? '#' + e.id : '') + (e.dataset.act ? '[' + e.dataset.act + ']' : '') : null; });
+async function newProj(pg, name, opts = {}) {
+  await pg.click('[data-act="new-project"] >> visible=true');
+  await pg.fill('#np-name', name);
+  if (opts.idea) await pg.fill('#np-idea', opts.idea);
+  if (opts.starter) await pg.check(`input[name="np-starter"][value="${opts.starter}"]`);
+  await pg.click(opts.ai ? '[data-act="create-ai"]' : '[data-act="create"]');
+  await pg.waitForTimeout(opts.ai ? 700 : 250);
+}
+const names = (pg) => pg.evaluate(() => [...document.querySelectorAll('#plist .pitem .nm')].map((x) => x.textContent));
+const doc = (pg, n) => pg.evaluate((n) => { for (const [, d] of window.__mockDocs) if (d.name === n) return d; return null; }, n);
+const noScroll = (pg) => pg.evaluate(() => document.scrollingElement.scrollWidth <= window.innerWidth);
+(async () => {
+  const b = await launch();
+  {
+    const { pg, errs } = await open(b, 'mocked.html');
+    await newProj(pg, 'Recipe Box', { starter: 'web' });
+    await pg.fill('#f-pitch', 'Plan meals for the week');
+    for (const n of ['Tide Clock', 'Garden Log', 'Budget Bot']) await newProj(pg, n);
+    await newProj(pg, 'Habit Tracker');
+    check('no search box under 6 projects', await pg.locator('#psearch').count() === 0);
+    await newProj(pg, 'Quiz Night');
+    check('a search box from 6 projects', await pg.isVisible('#psearch'));
+    await pg.focus('#psearch');
+    await pg.keyboard.type('rec');
+    check('typing filters the list and keeps focus in the box', JSON.stringify(await names(pg)) === '["Recipe Box"]' && (await fa(pg)) === 'INPUT#psearch', await names(pg));
+    await pg.fill('#psearch', 'meals');
+    check('the pitch is searched too', JSON.stringify(await names(pg)) === '["Recipe Box"]');
+    await pg.fill('#psearch', 'zzz');
+    check('no match says so', /No project matches "zzz"\./.test(await pg.textContent('#plist')));
+    await pg.press('#psearch', 'Escape');
+    check('Escape clears the search', (await pg.inputValue('#psearch')) === '' && (await names(pg)).length === 6);
+    // archive
+    await pg.click('#plist [data-act="open"] >> text=Garden Log');
+    await pg.waitForTimeout(150);
+    await pg.click('#more-btn');
+    await pg.click('[data-act="archive"]');
+    await pg.waitForTimeout(150);
+    check('Archive hides it from the list and explains', !(await names(pg)).includes('Garden Log') && /Archived\. This project is hidden/.test(await pg.textContent('.archived-note')) && (await fa(pg)) === 'BUTTON#unarchive[unarchive]' && await pg.isVisible('#plist [data-act="toggle-archived"]') && (await pg.textContent('#plist [data-act="toggle-archived"]')) === 'Show 1 archived', [await names(pg), await fa(pg)]);
+    await pg.waitForTimeout(1600);
+    check('archived is saved', (await doc(pg, 'Garden Log')).archived === true);
+    await pg.click('#toast [data-act="undo"]');
+    await pg.waitForTimeout(150);
+    check('Undo brings it back', (await names(pg)).includes('Garden Log') && await pg.locator('.archived-note').count() === 0 && await pg.locator('#plist [data-act="toggle-archived"]').count() === 0);
+    await pg.click('#more-btn');
+    await pg.click('[data-act="archive"]');
+    await pg.waitForTimeout(150);
+    await pg.click('#plist [data-act="toggle-archived"]');
+    await pg.waitForTimeout(100);
+    check('Show archived lists it, marked, under its own heading', (await names(pg)).at(-1) === 'Garden Log' && /Archived · /.test(await pg.textContent('#plist .pitem.archived')) && (await pg.getAttribute('#plist [data-act="toggle-archived"]', 'aria-expanded')) === 'true' && (await fa(pg)) === 'BUTTON[toggle-archived]');
+    await pg.click('#plist [data-act="toggle-archived"]');
+    await pg.fill('#psearch', 'garden');
+    check('search also finds archived projects', JSON.stringify(await names(pg)) === '["Garden Log"]');
+    await pg.fill('#psearch', '');
+    await pg.click('#unarchive');
+    await pg.waitForTimeout(150);
+    check('Restore puts it back and focus moves to More, where Archive is', (await names(pg)).includes('Garden Log') && (await fa(pg)) === 'BUTTON#more-btn[toggle-more]', await fa(pg));
+    // delete picks a project that is not archived
+    await pg.click('#plist [data-act="open"] >> text=Budget Bot');
+    await pg.click('#more-btn');
+    await pg.click('[data-act="archive"]');
+    await pg.waitForTimeout(100);
+    await pg.click('#plist [data-act="open"] >> text=Tide Clock');
+    await pg.click('#more-btn');
+    await pg.click('[data-act="ask-delete"]');
+    await pg.click('[data-act="delete-project"]');
+    await pg.waitForTimeout(200);
+    const now = await pg.inputValue('#f-name');
+    check('after a delete the next open project is not an archived one', now !== 'Budget Bot' && now !== 'Tide Clock', now);
+    // duplicate
+    await pg.click('#plist [data-act="open"] >> text="Recipe Box"');
+    await pg.waitForTimeout(100);
+    await pg.click('#more-btn');
+    await pg.click('[data-act="duplicate"]');
+    await pg.waitForTimeout(300);
+    check('Duplicate opens a copy', (await pg.inputValue('#f-name')) === 'Recipe Box (copy)' && /Made a copy called "Recipe Box \(copy\)"/.test(await pg.textContent('#toast')) && (await fa(pg)) === 'TEXTAREA#f-name');
+    await pg.waitForTimeout(1600);
+    const [o, c] = [await doc(pg, 'Recipe Box'), await doc(pg, 'Recipe Box (copy)')];
+    check('the copy has the same plan and the original is untouched', c && o && JSON.stringify(c.milestones.map((m) => [m.title, m.tasks.map((t) => t.title)])) === JSON.stringify(o.milestones.map((m) => [m.title, m.tasks.map((t) => t.title)])) && c.milestones[0].id !== o.milestones[0].id && c.pitch === o.pitch && c.createdAt > o.createdAt && o.name === 'Recipe Box');
+    // same setup: a rule from a lesson and a saved prompt carry over
+    await pg.click('#plist [data-act="open"] >> text="Recipe Box"');
+    await pg.click('#tab-improve');
+    await pg.click('[data-act="add-lesson"]');
+    await pg.keyboard.type('It changed unrelated files');
+    await pg.fill('.lesson >> nth=0 >> textarea >> nth=1', 'Only change the files the task names');
+    await pg.click('[data-act="promote"] >> nth=0');
+    await pg.click('[data-act="add-prompt"]');
+    await pg.keyboard.type('Release notes');
+    await pg.fill('.own-prompt textarea', 'Write release notes.');
+    await pg.waitForTimeout(200);
+    await pg.click('[data-act="new-project"] >> visible=true');
+    await pg.fill('#np-name', 'Meal Prep');
+    await pg.check('#np-st-like');
+    await pg.waitForTimeout(100);
+    check('picking "Same setup" shows the project picker, set to the open project, and keeps focus on the choice', await pg.isVisible('#np-like') && (await pg.$eval('#np-like', (s) => s.options[s.selectedIndex].text)) === 'Recipe Box' && (await fa(pg)) === 'INPUT#np-st-like' && (await pg.inputValue('#np-name')) === 'Meal Prep');
+    await pg.click('[data-act="create"]');
+    await pg.waitForTimeout(1800);
+    const [src, mp] = [await doc(pg, 'Recipe Box'), await doc(pg, 'Meal Prep')];
+    check('the new project gets the stack, commands, rules, lessons and prompts', mp && mp.stack === src.stack && mp.commands === src.commands && mp.conventions === src.conventions && /Only change the files the task names/.test(mp.conventions) && mp.starter === 'web' && mp.lessons.length === 1 && mp.lessons[0].promoted && mp.prompts.length === 1 && mp.prompts[0].title === 'Release notes', mp && { conv: mp.conventions, lessons: mp.lessons, prompts: mp.prompts });
+    check('but not the plan, brief or history (round 47: it starts from the starter\'s own plan)', mp.milestones.length === 2 && mp.milestones[0].title === 'Bare-bones version running' && !mp.milestones.some((m) => src.milestones.some((s) => s.id === m.id)) && mp.milestones.every((m) => m.tasks.every((t) => t.status === 'todo')) && mp.features.length === 0 && mp.pitch === '' && mp.sessions.length === 0 && mp.lessons[0].id !== src.lessons[0].id, { mine: mp.milestones.map((m) => m.title), src: src.milestones.map((m) => m.title), f: mp.features.length, pitch: mp.pitch, s: mp.sessions.length });
+    // a setup with no starter, drafted with Claude
+    await pg.click('#plist [data-act="open"] >> text=Quiz Night');
+    await pg.click('#tab-claudemd');
+    await pg.click('#tab-overview');
+    await pg.fill('#f-stack', 'Python 3.12\nFlask');
+    await pg.waitForTimeout(200);
+    await pg.click('[data-act="new-project"] >> visible=true');
+    await pg.fill('#np-name', 'Trivia API');
+    await pg.fill('#np-idea', 'An API that serves quiz questions');
+    await pg.check('#np-st-like');
+    await pg.click('[data-act="create-ai"]');
+    await pg.waitForTimeout(900);
+    const pr = await pg.evaluate(() => window.__prompts.find((x) => x.includes('Project name: Trivia API')));
+    check('Claude is told the stack is already chosen', /reuses the setup of an earlier project\. Its tech stack is already chosen \(Python 3\.12, Flask\)/.test(pr || ''), (pr || '').slice(0, 500));
+    check('no page errors', !errs.length, errs);
+    await pg.context().close();
+  }
+  {
+    const { pg, errs } = await open(b, 'mocked.html', { viewport: { width: 390, height: 800 } });
+    for (const n of ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']) await newProj(pg, n);
+    await pg.click('#more-btn');
+    await pg.click('[data-act="archive"]');
+    await pg.waitForTimeout(100);
+    await pg.click('[data-act="open-drawer"]');
+    await pg.waitForTimeout(150);
+    await pg.click('#plist [data-act="toggle-archived"]');
+    await pg.waitForTimeout(100);
+    check('390px: the drawer shows search and archived without overflow', await pg.isVisible('#psearch') && await noScroll(pg) && (await names(pg)).length === 6);
+    await pg.screenshot({ path: __dirname + '/rail-390.png' });
+    await pg.click('[data-act="close-drawer"] >> visible=true');
+    const hb = await pg.evaluate(() => { const r = document.querySelector('.phead-actions').getBoundingClientRect(); return r.right <= window.innerWidth; });
+    check('390px: the header buttons fit', hb && await noScroll(pg));
+    await pg.screenshot({ path: __dirname + '/head-390.png' });
+    check('390px: no page errors', !errs.length, errs);
+    await pg.context().close();
+  }
+  await b.close();
+})();

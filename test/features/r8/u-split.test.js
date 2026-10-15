@@ -1,0 +1,13 @@
+const U = require('./unit-lib');
+let fails = 0;
+const check = (name, ok, detail) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail !== undefined ? ' :: ' + JSON.stringify(detail) : '')); };
+const P = U.parseSplitLines;
+let r = P('- Add grid (S)\n2. Drag recipes\n  [ ] Save plan (L)\n* [x] Polish (size m)\n\n+ Show totals [S]');
+check('markers go and sizes are read', JSON.stringify(r) === JSON.stringify([{ title: 'Add grid', size: 'S' }, { title: 'Drag recipes', size: 'M' }, { title: 'Save plan', size: 'L' }, { title: 'Polish', size: 'M' }, { title: 'Show totals', size: 'S' }]), r);
+r = P('Fix (the) layout\nUse S3 for (images)\n(S)');
+check('brackets inside a title stay; a size alone is no task', JSON.stringify(r) === JSON.stringify([{ title: 'Fix (the) layout', size: 'M' }, { title: 'Use S3 for (images)', size: 'M' }]), r);
+r = P(Array.from({ length: 20 }, (_, i) => 'Task ' + i).join('\n'));
+check('at most 12 tasks', r.length === 12, r.length);
+check('empty text gives nothing', P('  \n \n').length === 0);
+check('long titles are cut to 200', P('x'.repeat(300))[0].title.length === 200);
+console.log(fails ? `${fails} failed` : 'all unit checks pass');

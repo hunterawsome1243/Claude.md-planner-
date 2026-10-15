@@ -1,0 +1,21 @@
+const path = require('path');
+const { launch, open } = require('../r48/lib');
+const { build, seedOf, initScript } = require('../r47/seed10b');
+(async () => {
+  const b = build();
+  const browser = await launch();
+  const { pg } = await open(browser, 'mocked.html', { init: initScript(seedOf(b.after)), viewport: { width: 1280, height: 800 }, wait: 1300 });
+  await pg.keyboard.press('Control+k'); await pg.waitForTimeout(100);
+  await pg.keyboard.type('share link'); await pg.waitForTimeout(500);
+  await pg.screenshot({ path: path.join(__dirname, 'find-desk.png') });
+  await pg.emulateMedia({ colorScheme: 'dark' });
+  await pg.screenshot({ path: path.join(__dirname, 'find-dark.png') });
+  await pg.context().close();
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
+  const r = await open(browser, 'mocked.html', { ctx, init: initScript(seedOf(b.after)), wait: 1300 });
+  await r.pg.screenshot({ path: path.join(__dirname, 'phone-head.png') });
+  await r.pg.tap('.phead [data-act="find"]'); await r.pg.waitForTimeout(100);
+  await r.pg.fill('#find-q', 'gpx'); await r.pg.waitForTimeout(400);
+  await r.pg.screenshot({ path: path.join(__dirname, 'find-phone.png') });
+  await browser.close();
+})();

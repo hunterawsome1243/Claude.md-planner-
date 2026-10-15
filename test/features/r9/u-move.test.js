@@ -1,0 +1,18 @@
+const U = require('./unit-lib');
+let fails = 0;
+const check = (name, ok, detail) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail !== undefined ? ' :: ' + JSON.stringify(detail) : '')); };
+const mk = () => U.normalize({ name: 'x', milestones: [{ id: 'm1', title: 'A', tasks: [{ id: 't1', title: '1' }, { id: 't2', title: '2' }] }, { id: 'm2', title: 'B', tasks: [{ id: 't3', title: '3' }] }, { id: 'm3', title: 'C', tasks: [] }] });
+const shape = (p) => p.milestones.map((m) => m.tasks.map((t) => t.id).join(',')).join('|');
+let p = mk();
+check('down inside a milestone', U.moveTask(p, 'm1', 't1', 1).id === 'm1' && shape(p) === 't2,t1|t3|', shape(p));
+check('down off the end joins the next milestone at the top', U.moveTask(p, 'm1', 't1', 1).id === 'm2' && shape(p) === 't2|t1,t3|', shape(p));
+check('up off the top joins the previous milestone at the end', U.moveTask(p, 'm2', 't1', -1).id === 'm1' && shape(p) === 't2,t1|t3|', shape(p));
+p = mk();
+check('the very first task cannot go up', U.moveTask(p, 'm1', 't1', -1) === null && shape(p) === 't1,t2|t3|');
+check('down into an empty milestone', U.moveTask(p, 'm2', 't3', 1).id === 'm3' && shape(p) === 't1,t2||t3', shape(p));
+check('the very last task cannot go down', U.moveTask(p, 'm3', 't3', 1) === null && shape(p) === 't1,t2||t3');
+check('unknown ids do nothing', U.moveTask(p, 'm9', 't3', 1) === null && U.moveTask(p, 'm1', 't9', 1) === null && shape(p) === 't1,t2||t3');
+p = mk();
+check('move to another milestone goes to its end', U.moveTaskTo(p, 'm1', 't1', 'm2').id === 'm2' && shape(p) === 't2|t3,t1|', shape(p));
+check('move to the same milestone does nothing', U.moveTaskTo(p, 'm2', 't1', 'm2') === null && shape(p) === 't2|t3,t1|');
+console.log(fails ? `${fails} failed` : 'all unit checks pass');

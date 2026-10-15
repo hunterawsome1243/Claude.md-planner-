@@ -1,0 +1,20 @@
+// Round 28: the report lines at the end of a Claude Code summary
+const U = require('./unit-lib');
+let fails = 0;
+const check = (name, ok, detail) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail !== undefined ? ' :: ' + JSON.stringify(detail) : '')); };
+const R = U.sessionReport;
+check('plain lines', JSON.stringify(R('Added the grid.\n\nOutcome: stuck\nWent wrong: Touch drags scroll the page.')) === '{"outcome":"stuck","wrong":"Touch drags scroll the page."}', R('Outcome: stuck\nWent wrong: Touch drags scroll the page.'));
+check('partly done and partly', R('Outcome: partly done').outcome === 'partly' && R('outcome: Partly').outcome === 'partly' && R('Outcome: partially done').outcome === 'partly');
+check('Markdown bold and list markers', JSON.stringify(R('- **Outcome:** done\n- **Went wrong:** nothing')) === '{"outcome":"done","wrong":""}', R('- **Outcome:** done\n- **Went wrong:** nothing'));
+check('"nothing" and friends mean nothing went wrong', ['nothing', 'Nothing.', 'none', 'N/A', '-', 'Nothing went wrong.', 'no issues'].every((x) => R(`Went wrong: ${x}`).wrong === ''));
+check('"None of the tests ran" is a real problem', R('Went wrong: None of the tests ran').wrong === 'None of the tests ran');
+check('no report lines: nothing found', JSON.stringify(R('I added the grid. Outcome is good.')) === '{"outcome":"","wrong":""}');
+check('the last report wins', R('Outcome: stuck\nlater...\nOutcome: done').outcome === 'done');
+check('an unknown outcome is ignored', R('Outcome: great').outcome === '');
+check('underscores inside the text stay', R('Went wrong: __init__.py was overwritten').wrong === '__init__.py was overwritten', R('Went wrong: __init__.py was overwritten'));
+const p = U.normalize({ name: 'x', commands: 'npm test', milestones: [{ id: 'm1', title: 'A', tasks: [{ id: 't1', title: 'Do it' }] }], bugs: [{ id: 'b1', title: 'Crash' }] });
+const asks = (t) => /End with two lines for my log: "Outcome: done" \(or "partly done", or "stuck"\), then "Went wrong:" and what went wrong, or "nothing"\./.test(t);
+check('task prompts ask for the lines', asks(U.taskPrompt(p, p.milestones[0], p.milestones[0].tasks[0])));
+check('bug prompts and /next ask too', asks(U.bugPrompt(p, p.bugs[0])) && asks(U.nextCommandMd(p)));
+check('what they ask for parses', R('Outcome: done\nWent wrong: nothing').outcome === 'done');
+console.log(`unit-report fails: ${fails}`);

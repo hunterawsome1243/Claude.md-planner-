@@ -1,0 +1,8 @@
+// Loads the pure parts of an app.js into Node for fast checks.
+const fs = require('fs'); const path = require('path');
+const file = process.env.APPJS || path.join(__dirname, '..', '..', '..', 'src', 'app.js');
+const src = fs.readFileSync(file, 'utf8').split('\n');
+const end = src.findIndex((l) => l.startsWith('/* ================= health'));
+const body = src.slice(3, end).join('\n') + '\nfunction isPlain(v) { return !!v && typeof v === "object" && !Array.isArray(v); }\n'
+  + 'return { REPO_HAS, repoHasList, repoHas, guideSteps, buildClaudeMd, NOT_THERE, untermText, readPlanMd, planChangeText, surveyClean, sameNote, lessonOf, mkSession, mkLesson, sentence, projectPulse, surveyPrompt, surveyBody, isSurvey, SURVEY_MARK, SURVEY_FILE, detectImport, looksLikeClaudeMd, sessionReport, nextCommandMd, bugPrompt, taskLineage, milestoneRecap, recapLine, milestoneRecapMd, ruleText, newDot, WN_VER, taskHistory, historyLine, taskPrompt, allTasks, dayOf, today, localDay, lateText, plainCommandText, BUILTIN_CMDS, exampleProject, EXAMPLE_NAME, nextUp, guideSteps, weekSummary, summaryWeek, targetCheck, addDays, daysBetween, duplicateProject, projectPulse, sumWeeks, mkChat, weekOf, weeklyProgress, cmdSlug, promptCommands, commandMd, mdLite, chatMessages, moveTask, moveTaskTo, parseSplitLines, readPlanMd, applyPlanMd, undoPlanSync, buildPlanMd, nextCommandMd, safeCommands, settingsJson, parseDoc, parseShipyardMd, projectMarkdown, normalize, blankProject, applyStarter, mkTask, mkMilestone, mkBug, planChangeText };';
+module.exports = new Function('localStorage', 'document', 'window', body)({}, {}, {});

@@ -1,0 +1,55 @@
+// Round 35: what the app says about the Claude Code files, after review 8a
+const { launch, open, check } = require('./lib');
+const seed = { 'p-a': { kind: 'project', name: 'Plant Pal', pitch: 'Water plants on time.', commands: 'npm install\nnpm test',
+  features: [{ id: 'f1', title: 'Plant list', priority: 'must', status: 'done' }],
+  milestones: [{ id: 'm1', title: 'Basics', tasks: [{ id: 't1', title: 'List plants' }] }] } };
+const how = (pg) => pg.$eval('ol.how', (e) => e.textContent);
+(async () => {
+  const b = await launch();
+  const { pg, errs } = await open(b, 'mocked.html', { init: `window.__SEED__ = ${JSON.stringify(seed)};`, wait: 700 });
+  await pg.click('#tab-claudemd');
+  check('CLAUDE.md has no "(built)" and points at PLAN.md', !/\(built\)/.test(await pg.inputValue('#f-claudeMd')) && /The plan is in PLAN\.md/.test(await pg.inputValue('#f-claudeMd')));
+  await pg.click('[data-act="repo-file"][data-k="settings"]');
+  const st = JSON.parse(await pg.inputValue('#repo-text'));
+  check('settings.json asks before a push, on both shells', st.permissions.ask.includes('Bash(git push *)') && st.permissions.ask.includes('PowerShell(git push *)') && st.permissions.allow.includes('PowerShell(npm test *)'), st.permissions);
+  check('the file says what it does', /asks you before it sends code to GitHub/.test(await pg.textContent('.md-state')), await pg.textContent('.md-state'));
+  const sh = await how(pg);
+  check('the how-to explains auto mode and the ask rules', /may run in auto mode/.test(sh) && /stop and ask you before it sends code to GitHub \(a push\) or asks to merge changes there \(a pull request\)/.test(sh) && /allow, ask and deny lists/.test(sh), sh);
+  check('and that I paste keys into .env myself', /Claude cannot read, create or edit them, so you paste keys into \.env yourself/.test(sh));
+  await pg.click('[data-act="repo-file"][data-k="next"]');
+  check('/next says to restart if it is not listed', /If it is not in the list yet, restart Claude Code \(type \/exit, then claude\)/.test(await how(pg)));
+  check('/next splits large tasks', /If it is marked \(L\)/.test(await pg.inputValue('#repo-text')));
+  await pg.click('[data-act="repo-file"][data-k="tester"]');
+  check('the test runner says to start a new session', /Start a new Claude Code session, so it loads the new folder\./.test(await how(pg)) && /\ntools: Bash, PowerShell, Read, Grep, Glob\n/.test(await pg.inputValue('#repo-text')));
+  await pg.click('.save-all [data-act="save-all"]');
+  await pg.waitForTimeout(100);
+  const t = await pg.inputValue('#m-export');
+  check('the save-all prompt merges ask rules too', /add any missing allow, ask and deny rules/.test(t));
+  check('and ends by asking Claude to tell me to restart', /If the \.claude\/agents or \.claude\/commands folder is new, tell me to restart Claude Code \(type \/exit, then run claude again\) so it loads them\./.test(t));
+  check('the dialog says to restart afterwards', /Restart Claude Code afterwards \(type \/exit, then run claude\) so it loads new commands and subagents\./.test(await pg.textContent('.modal .sub')), await pg.textContent('.modal .sub'));
+  await pg.keyboard.press('Escape');
+  await pg.click('[data-act="repo-file"][data-k="claudemd"]');
+  await pg.click('[data-act="cc-setup"] >> visible=true');
+  const cc = await pg.textContent('.cc-steps');
+  check('Start Claude Code suggests the explanatory output style', /Type \/output-style explanatory in Claude Code/.test(cc));
+  check('and its last step says to restart after saving the files', /paste it into Claude Code, then restart it \(type \/exit, then claude\) so it loads them\. Then paste the task prompt from Next up\./.test(cc), cc.slice(cc.indexOf('Give it')));
+  await pg.keyboard.press('Escape');
+  await pg.click('#tab-improve');
+  const habits = await pg.$$eval('.checks li', (x) => x.map((e) => e.textContent));
+  check('the diff habit fits auto mode', habits.some((h) => /Review what changed before moving on/.test(h) && /\/diff/.test(h)) && !habits.some((h) => /Read the diff before accepting/.test(h)), habits.filter((h) => /diff|changed/i.test(h)));
+  check('the plan habit mentions /plan', habits.some((h) => /Type \/plan before the request/.test(h)));
+  await pg.click('[data-act="log-session"] >> visible=true');
+  check('the session dialog mentions /copy', /In Claude Code, \/copy copies its last reply\./.test(await pg.textContent('#ss-auto')));
+  await pg.fill('#ss-summary', 'Added the list.\n\n"Outcome: partly done"\n`Went wrong: the test timed out`');
+  await pg.waitForTimeout(150);
+  check('a quoted report fills the outcome', (await pg.$eval('input[name="ss-outcome"]:checked', (e) => e.value).catch(() => null)) === 'partly' && /the test timed out/.test(await pg.inputValue('#ss-wrong')), [await pg.$eval('input[name="ss-outcome"]:checked', (e) => e.value).catch(() => null), await pg.inputValue('#ss-wrong')]);
+  await pg.keyboard.press('Escape');
+  await pg.click('#rail [data-act="whats-new"]');
+  check('What\'s new lists auto mode', (await pg.$$eval('.wn-list li h3', (x) => x.map((e) => e.textContent))).some((t) => t.startsWith('Ready for auto mode')));
+  await pg.evaluate(() => document.querySelectorAll('details.wn-past').forEach((d) => { d.open = true; }));
+  await pg.click('[data-act="wn-go"][data-k="settings"]');
+  await pg.waitForTimeout(150);
+  check('its shortcut opens settings.json on Repo files', (await pg.getAttribute('[data-act="repo-file"][data-k="settings"]', 'aria-pressed')) === 'true' && (await pg.evaluate(() => document.activeElement?.dataset.k)) === 'settings' && /"ask"/.test(await pg.inputValue('#repo-text')));
+  check('no page errors', errs.length === 0, errs);
+  await b.close();
+})();
